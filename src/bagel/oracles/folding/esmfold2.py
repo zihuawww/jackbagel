@@ -136,7 +136,8 @@ class ESMFold2(FoldingOracle):
         structures, which is why the chains are nested under one ``sequences`` key.
         """
         return {
-            'sequences': [{'kind': 'protein', 'id': chain.chain_ID, 'sequence': chain.sequence} for chain in chains]
+            'kind': 'structure_prediction_input',
+            'sequences': [{'kind': 'protein', 'id': chain.chain_ID, 'sequence': chain.sequence} for chain in chains],
         }
 
     def fold(self, chains: list[Chain]) -> ESMFold2Result:
