@@ -107,6 +107,11 @@ class ESMFold2(FoldingOracle):
             'num_sampling_steps': 100,
             'num_loops': 20,
         }
+        # boileroom's ESMFold2 wrapper computes and returns nothing by default: its
+        # `_wants_field` gate is `include_fields is not None and (...)`, so an absent
+        # `include_fields` option means every optional output (plddt, ptm, pae, ...)
+        # comes back as an empty/None placeholder rather than the real value.
+        self.required_fields = ['plddt', 'ptm', 'pae']
         self._load(config)
 
     def _load(self, config: dict[str, Any] | None = None) -> None:
@@ -153,7 +158,8 @@ class ESMFold2(FoldingOracle):
         ESMFold2Result
             Folding result with structure and confidence metrics.
         """
-        output = self.model.fold(self._pre_process(chains))
+        options = {'include_fields': self.required_fields}
+        output = self.model.fold(self._pre_process(chains), options=options)
         return self._reduce_output(output, chains)
 
     def _reduce_output(self, output: 'ESMFold2Output', chains: list[Chain]) -> ESMFold2Result:
