@@ -172,8 +172,11 @@ class ESMFold2(FoldingOracle):
             Reduced result with relevant metrics.
         """
         # boileroom >= 0.3.x returns atom_array as a list (one AtomArray per input).
-        atoms = output.atom_array[0] if isinstance(output.atom_array, (list, tuple)) else output.atom_array
-        atoms = reindex_chains(atoms, [chain.chain_ID for chain in chains])
+        # reindex_chains() does its own [0]-unwrapping (and enforces the single-structure
+        # invariant), so it must receive the list itself, not an already-unwrapped element
+        # -- matching how the ESMFold (v1) oracle calls it.
+        atom_array = output.atom_array if isinstance(output.atom_array, (list, tuple)) else [output.atom_array]
+        atoms = reindex_chains(atom_array, [chain.chain_ID for chain in chains])
 
         # Extract pLDDT - ESMFold2 returns per-residue pLDDT directly
         local_plddt = np.array([[0.0]])  # default (1, N) to match ptm/pae and save_attributes
