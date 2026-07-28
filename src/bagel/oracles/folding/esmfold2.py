@@ -103,7 +103,7 @@ class ESMFold2(FoldingOracle):
             config = {}
         self.use_modal = use_modal
         self.default_config: dict[str, Any] = {
-            'model_name': 'esmfold2-fast-2026-05',
+            'model_name': 'biohub/ESMFold2',
             'num_sampling_steps': 100,
             'num_loops': 20,
         }
