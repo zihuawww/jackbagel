@@ -198,10 +198,11 @@ class ESMFold2(FoldingOracle):
             if ptm.ndim == 1:
                 ptm = ptm[None, :]
 
-        # Extract PAE
+        # Extract PAE (output.pae is a list[np.ndarray | None], one per input structure,
+        # same shape as plddt/ptm above -- must be unwrapped with [0] the same way).
         pae = np.zeros((1, 0, 0))
-        if output.pae is not None:
-            pae = output.pae
+        if output.pae is not None and len(output.pae) > 0 and output.pae[0] is not None:
+            pae = output.pae[0]
             if pae.ndim == 2:
                 pae = pae[None, :, :]
 
