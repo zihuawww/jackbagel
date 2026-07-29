@@ -114,22 +114,46 @@ class ESMFold(FoldingOracle):
         atoms = reindex_chains(atoms, [chain.chain_ID for chain in chains])
         atoms = reindex_residues(atoms, chains)
 
-        # These fields should always be present since we requested them via include_fields
-        if output.plddt is None or np.size(output.plddt) == 0:
-            raise ValueError('ESMFold output does not contain plddt (requested via include_fields)')
-        if output.pae is None or np.size(output.pae) == 0:
-            raise ValueError('ESMFold output does not contain pae (requested via include_fields)')
-        if output.ptm is None or np.size(output.ptm) == 0:
-            raise ValueError('ESMFold output does not contain ptm (requested via include_fields)')
+        # These fields should always be present since we requested them via include_fields.
+        # boileroom's Apptainer backend round-trips them through JSON as one already-processed
+        # sample per input (see ESMFoldOutput.__post_init__ / _normalize_esmfold_plddt): plddt
+        # arrives CA-only and unit-scale already, not the raw (batch, residue, atom37) tensor
+        # this code used to assume. `_first_sample` also tolerates the old raw-tensor shape so
+        # this keeps working if a future/older boileroom build ever sends that instead. There is
+        # always exactly one sample per call (`_pre_process` returns a single joined sequence).
+        local_plddt = self._first_sample(output.plddt, 'plddt')
+        if local_plddt.ndim == 2 and local_plddt.shape[-1] == 37:
+            local_plddt = local_plddt[:, atom_order['CA']]
+        if local_plddt.ndim == 1:
+            local_plddt = local_plddt[None, :]
 
-        # Extract plddt for CA atoms
-        local_plddt = output.plddt[..., atom_order['CA']]
+        ptm = np.atleast_1d(self._first_sample(output.ptm, 'ptm'))
+        if ptm.ndim == 1:
+            ptm = ptm[None, :]
+
+        pae = self._first_sample(output.pae, 'pae')
+        if pae.ndim == 2:
+            pae = pae[None, :, :]
 
         results = self.result_class(
             input_chains=chains,
             structure=atoms,
             local_plddt=local_plddt,
-            ptm=output.ptm,
-            pae=output.pae,
+            ptm=ptm,
+            pae=pae,
         )
         return results
+
+    @staticmethod
+    def _first_sample(value: Any, name: str) -> npt.NDArray[np.float64]:
+        """Pull out the sole sample's array from an ESMFoldOutput field. `value[0]` works
+        uniformly whether `value` is a per-sample list (the current boileroom contract) or a
+        raw batch-first ndarray (an older/hypothetical one) -- both index their first axis the
+        same way, and there is always exactly one sample per call (`_pre_process` returns a
+        single joined sequence)."""
+        if value is None or len(value) == 0:
+            raise ValueError(f'ESMFold output does not contain {name} (requested via include_fields)')
+        sample = value[0]
+        if sample is None:
+            raise ValueError(f'ESMFold output does not contain {name} (requested via include_fields)')
+        return np.asarray(sample, dtype=np.float64)
